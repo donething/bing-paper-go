@@ -24,7 +24,7 @@ const (
 
 var (
 	host      = `https://bing.com`
-	papersURL = host + `/HPImageArchive.aspx?format=js&idx=0&n=1`
+	papersURL = host + `/HPImageArchive.aspx?format=js&idx=0&n=3`
 	client    = dohttp.New(180*time.Second, false, false)
 )
 
