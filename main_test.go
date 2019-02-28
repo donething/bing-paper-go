@@ -7,7 +7,7 @@ import (
 )
 
 func Test_obtainPrevious(t *testing.T) {
-	obtainPrevious()
+	obtainAllPapers()
 }
 
 func Test_checkFiles(t *testing.T) {

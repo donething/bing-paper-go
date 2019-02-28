@@ -24,39 +24,34 @@ const (
 
 var (
 	host      = `https://bing.com`
-	papersURL = host + `/HPImageArchive.aspx?format=js&idx=0&n=8`
+	papersURL = host + `/HPImageArchive.aspx?format=js&idx=0&n=1`
 	client    = dohttp.New(180*time.Second, false, false)
 )
 
 func main() {
-	// 根据API获取壁纸的URL
-	papers, err := obtainPapersUrl()
+	// 保存壁纸
+	err := obtainLatestPapers()
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	// 根据URL将壁纸保存为文件
-	obtainPapersFile(papers)
 }
 
-// 获取必应壁纸的URL
-func obtainPapersUrl() (*models.BingPapers, error) {
+// 获取必应壁纸
+func obtainLatestPapers() error {
+	// 获取必应壁纸的URL
 	papersJSON, err := client.GetText(papersURL, nil)
 	if err != nil {
-		return nil, fmt.Errorf("获取数据（%s）出错：%s\n", papersURL, err)
+		return fmt.Errorf("获取数据（%s）出错：%s\n", papersURL, err)
 	}
 
 	var ps models.BingPapers
 	err = json.Unmarshal([]byte(papersJSON), &ps)
 	if err != nil {
-		return nil, fmt.Errorf("解析json数据（%s）出错：%s\n", papersJSON, err)
+		return fmt.Errorf("解析json数据（%s）出错：%s\n", papersJSON, err)
 	}
-	return &ps, nil
-}
 
-// 保存壁纸为文件
-func obtainPapersFile(papersURL *models.BingPapers) {
-	for _, p := range papersURL.Images {
+	// 保存壁纸为文件
+	for _, p := range ps.Images {
 		name := p.Startdate + `_` + p.URL[strings.LastIndex(p.URL, `/`)+1:]
 		path := filepath.Join(savedPath, name)
 		exist, err := dofile.PathExists(path)
@@ -74,15 +69,28 @@ func obtainPapersFile(papersURL *models.BingPapers) {
 			log.Printf("获取网络图片（%s）时保存文件（%s）出错：%s\n", host+p.URL, path, err)
 			continue
 		}
-		log.Printf("保存图片（%s）完毕\n", path)
+
+		// 检测图片完整性
+		ok, err := dofile.CheckIntegrity(path)
+		if err != nil {
+			log.Printf("检测图片完整性时出错：%s\n", path)
+			continue
+		}
+		if !ok {
+			log.Printf("文件不完整：%s\n", path)
+		}
+		log.Printf("图片（%s）保存完毕\n", path)
 	}
+	log.Println("本次所有图片保存完毕")
+	return nil
 }
 
 // 获取网站上的所有壁纸
 // 参考：https://github.com/benheart/BingGallery/blob/master/bing_gallery_crawler_new.py
-func obtainPrevious() {
+func obtainAllPapers() {
 	pageUrl := `https://bing.ioliu.cn/?p=%d`
 	resolution := "1920x1080" // 图片分辨率
+	log.Println("开始下载所有图片：")
 	for i := 6; i >= 1; i-- {
 		// 获取网页文本
 		url := fmt.Sprintf(pageUrl, i)
@@ -143,11 +151,15 @@ func obtainPrevious() {
 		})
 	}
 	log.Println("所有图片处理完毕")
+
+	// 检测图片完整性
+	log.Println("开始检测文件的完整性：")
+	checkFiles()
+	log.Println("所有文件检测完成")
 }
 
 // jpg文件完整性检测
 func checkFiles() {
-	log.Println("开始检测目录下的文件完整性")
 	paths, err := ioutil.ReadDir(savedPath)
 	if err != nil {
 		log.Printf("读取目录（%s）出错：%s\n", savedPath, err)
@@ -168,5 +180,4 @@ func checkFiles() {
 			log.Printf("文件不完整：%s\n", path)
 		}
 	}
-	log.Println("所有文件检测完成")
 }
