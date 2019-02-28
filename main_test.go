@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func Test_obtainPrevious(t *testing.T) {
+func Test_obtainAllPapers(t *testing.T) {
 	obtainAllPapers()
 }
 
