@@ -1,2 +1,4 @@
 .idea/
 go.sum
+*.exe
+bing-paper-go
