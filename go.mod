@@ -4,7 +4,7 @@ go 1.12
 
 require (
 	github.com/PuerkitoBio/goquery v1.5.0
-	github.com/donething/utils-go v0.0.0-20190227230656-58089fc75459
+	github.com/donething/utils-go v0.0.0-20190301121459-24515d9dfc53
 	github.com/getlantern/context v0.0.0-20190109183933-c447772a6520 // indirect
 	github.com/getlantern/errors v0.0.0-20180829142810-e24b7f4ff7c7 // indirect
 	github.com/getlantern/golog v0.0.0-20170508214112-cca714f7feb5 // indirect

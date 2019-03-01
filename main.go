@@ -3,14 +3,18 @@
 package main
 
 import (
+	"donething/bing-paper-go/icon"
 	"donething/bing-paper-go/models"
 	"encoding/json"
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
 	"github.com/donething/utils-go/dofile"
 	"github.com/donething/utils-go/dohttp"
+	"github.com/getlantern/systray"
+	"io"
 	"io/ioutil"
 	"log"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -19,7 +23,8 @@ import (
 
 const (
 	// 壁纸保存的路径
-	savedPath = `D:\MyData\Image\Bing`
+	savedPath = `D:/MyData/Image/Bing`
+	logName   = "bing-paper.log"
 )
 
 var (
@@ -28,11 +33,67 @@ var (
 	client    = dohttp.New(180*time.Second, false, false)
 )
 
+func init() {
+	// 打印log时显示时间戳
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
+
+	// 将日志输出到屏幕和日志文件
+	lf, err := os.OpenFile(logName, os.O_CREATE|os.O_APPEND, 0644)
+	if err != nil {
+		log.Fatal("打开日志文件出错：", err)
+	}
+	// 此句不能有，否则日志不能保存到文件中
+	// defer lf.Close()
+	// MultiWriter()的参数顺序也重要，如果使用"-H windowsgui"参数build，并且需要将日志保存到文件，
+	// 则需要将日志文件的指针（lf）放到os.Stdout之前，否则log不会产生输出
+	log.SetOutput(io.MultiWriter(lf, os.Stdout))
+}
+
 func main() {
+	// 显示托盘
+	go func() {
+		systray.Run(onReady, nil)
+	}()
+
 	// 保存壁纸
 	err := obtainLatestPapers()
 	if err != nil {
 		log.Fatal(err)
+	}
+
+	wait := make(chan interface{})
+	<-wait
+}
+
+// 显示systray托盘
+func onReady() {
+	systray.SetIcon(icon.Tray)
+	systray.SetTitle("下载Bing每日壁纸")
+	systray.SetTooltip("下载Bing每日壁纸")
+
+	mOpenPaperFold := systray.AddMenuItem("打开壁纸文件夹", "打开壁纸文件夹")
+	mOpenLog := systray.AddMenuItem("打开日志", "打开日志文件")
+	systray.AddSeparator()
+	mQuit := systray.AddMenuItem("退出", "退出程序")
+
+	for {
+		select {
+		case <-mOpenPaperFold.ClickedCh:
+			err := dofile.OpenAs(savedPath)
+			if err != nil {
+				log.Printf("打开路径(%s)出错：%s\n", savedPath, err)
+			}
+		case <-mOpenLog.ClickedCh:
+			err := dofile.OpenAs(logName)
+			if err != nil {
+				log.Printf("打开日志文件(%s)出错：%s\n", logName, err)
+			}
+		case <-mQuit.ClickedCh:
+			// 退出程序
+			log.Println("退出程序")
+			systray.Quit()
+			os.Exit(0)
+		}
 	}
 }
 
@@ -60,7 +121,7 @@ func obtainLatestPapers() error {
 			continue
 		}
 		if exist {
-			log.Printf("本地已存在同名文件（%s）\n", path)
+			// log.Printf("本地已存在同名文件（%s）\n", path)
 			continue
 		}
 
