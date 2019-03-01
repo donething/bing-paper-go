@@ -24,7 +24,7 @@ import (
 const (
 	// 壁纸保存的路径
 	savedPath = `D:/MyData/Image/Bing`
-	logName   = "bing-paper.log"
+	logName   = "run.log"
 )
 
 var (
