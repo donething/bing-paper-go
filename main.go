@@ -23,8 +23,8 @@ import (
 
 const (
 	// 壁纸保存的路径
-	savedPath = `D:/MyData/Image/Bing`
-	logName   = "run.log"
+	PapersPath = `D:/MyData/Image/Bing`
+	logName    = "run.log"
 )
 
 var (
@@ -79,9 +79,9 @@ func onReady() {
 	for {
 		select {
 		case <-mOpenPaperFold.ClickedCh:
-			err := dofile.OpenAs(savedPath)
+			err := dofile.OpenAs(PapersPath)
 			if err != nil {
-				log.Printf("打开路径(%s)出错：%s\n", savedPath, err)
+				log.Printf("打开路径(%s)出错：%s\n", PapersPath, err)
 			}
 		case <-mOpenLog.ClickedCh:
 			err := dofile.OpenAs(logName)
@@ -114,7 +114,7 @@ func obtainLatestPapers() error {
 	// 保存壁纸为文件
 	for _, p := range ps.Images {
 		name := p.Startdate + `_` + p.URL[strings.LastIndex(p.URL, `/`)+1:]
-		path := filepath.Join(savedPath, name)
+		path := filepath.Join(PapersPath, name)
 		exist, err := dofile.PathExists(path)
 		if err != nil {
 			log.Printf("判断路径（%s）是否存在时出错：%s\n", path, err)
@@ -189,7 +189,7 @@ func obtainAllPapers() {
 			calendar = calendar.Add(-24 * time.Hour)
 			name := calendar.Format("20060102") + "_" + theUrl[strings.LastIndex(theUrl, "/")+1:]
 
-			dst := filepath.Join(savedPath, name)
+			dst := filepath.Join(PapersPath, name)
 			// 如果文件已存在，则取消下载
 			exist, err := dofile.PathExists(dst)
 			if err != nil {
@@ -202,7 +202,7 @@ func obtainAllPapers() {
 			}
 
 			// 保存到文件
-			_, err = client.GetFile(theUrl, nil, filepath.Join(savedPath, name))
+			_, err = client.GetFile(theUrl, nil, filepath.Join(PapersPath, name))
 			if err != nil {
 				log.Printf("下载网络图片（%s） ==> （%s）出错：%s\n", theUrl, name, err)
 				return
@@ -221,9 +221,9 @@ func obtainAllPapers() {
 
 // jpg文件完整性检测
 func checkFiles() {
-	paths, err := ioutil.ReadDir(savedPath)
+	paths, err := ioutil.ReadDir(PapersPath)
 	if err != nil {
-		log.Printf("读取目录（%s）出错：%s\n", savedPath, err)
+		log.Printf("读取目录（%s）出错：%s\n", PapersPath, err)
 		return
 	}
 
@@ -231,7 +231,7 @@ func checkFiles() {
 		if p.IsDir() {
 			continue
 		}
-		path := filepath.Join(savedPath, p.Name())
+		path := filepath.Join(PapersPath, p.Name())
 		ok, err := dofile.CheckIntegrity(path)
 		if err != nil {
 			log.Printf("检测文件（%s）的完整性出错：%s\n", path, err)
