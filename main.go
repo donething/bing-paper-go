@@ -156,7 +156,7 @@ func obtainLatestPapers() error {
 		}
 		log.Printf("图片（%s）保存完毕\n", path)
 	}
-	log.Println("本次所有图片保存完毕")
+	log.Println("本日图片保存完毕")
 	return nil
 }
 
