@@ -28,7 +28,8 @@ const (
 )
 
 var (
-	host      = `https://bing.com`
+	host = `https://bing.com`
+	// 将n设为3而不是1，是为了避免几天没打开电脑，而导致漏掉某天的壁纸
 	papersURL = host + `/HPImageArchive.aspx?format=js&idx=0&n=3`
 	client    = dohttp.New(180*time.Second, false, false)
 )
@@ -55,21 +56,32 @@ func main() {
 		systray.Run(onReady, nil)
 	}()
 
+	// 下载
+	log.Println("开始定时下载必应壁纸：")
+	run()
+	ticker := time.NewTicker(12 * time.Hour)
+	for range ticker.C {
+		run()
+	}
+}
+
+// 下载
+func run() {
+	for !dohttp.CheckNetworkConn() {
+		time.Sleep(1 * time.Minute)
+	}
 	// 保存壁纸
 	err := obtainLatestPapers()
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	wait := make(chan interface{})
-	<-wait
 }
 
 // 显示systray托盘
 func onReady() {
 	systray.SetIcon(icon.Tray)
-	systray.SetTitle("下载Bing每日壁纸")
-	systray.SetTooltip("下载Bing每日壁纸")
+	systray.SetTitle("下载每日Bing壁纸")
+	systray.SetTooltip("下载每日Bing壁纸")
 
 	mOpenPaperFold := systray.AddMenuItem("打开壁纸文件夹", "打开壁纸文件夹")
 	mOpenLog := systray.AddMenuItem("打开日志", "打开日志文件")
