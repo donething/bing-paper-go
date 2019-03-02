@@ -25,13 +25,15 @@ const (
 	// 壁纸保存的路径
 	PapersPath = `D:/MyData/Image/Bing`
 	logName    = "run.log"
+
+	host = `https://cn.bing.com`
+	// 将n设为3而不是1，是为了避免几天没打开电脑，而导致漏掉某天的壁纸
+	papersURL    = `https://cn.bing.com/HPImageArchive.aspx?format=js&idx=0&n=3`
+	allPapersURL = `https://bing.ioliu.cn/?p=%d`
 )
 
 var (
-	host = `https://bing.com`
-	// 将n设为3而不是1，是为了避免几天没打开电脑，而导致漏掉某天的壁纸
-	papersURL = host + `/HPImageArchive.aspx?format=js&idx=0&n=3`
-	client    = dohttp.New(180*time.Second, false, false)
+	client = dohttp.New(180*time.Second, false, false)
 )
 
 func init() {
@@ -125,7 +127,7 @@ func obtainLatestPapers() error {
 
 	// 保存壁纸为文件
 	for _, p := range ps.Images {
-		name := p.Startdate + `_` + p.URL[strings.LastIndex(p.URL, `/`)+1:]
+		name := p.Enddate + `_` + p.URL[strings.LastIndex(p.URL, `/`)+1:]
 		path := filepath.Join(PapersPath, name)
 		exist, err := dofile.PathExists(path)
 		if err != nil {
@@ -161,16 +163,21 @@ func obtainLatestPapers() error {
 // 获取网站上的所有壁纸
 // 参考：https://github.com/benheart/BingGallery/blob/master/bing_gallery_crawler_new.py
 func obtainAllPapers() {
-	pageUrl := `https://bing.ioliu.cn/?p=%d`
 	resolution := "1920x1080" // 图片分辨率
 	log.Println("开始下载所有图片：")
-	for i := 6; i >= 1; i-- {
+
+	for i := 1; ; i++ {
 		// 获取网页文本
-		url := fmt.Sprintf(pageUrl, i)
+		url := fmt.Sprintf(allPapersURL, i)
 		text, err := client.GetText(url, nil)
 		if err != nil {
 			log.Printf("获取网页（%s）文本出错：%s\n", url, err)
 			continue
+		}
+
+		// 如果当前页和前一页的页数相同，则说明已读取完所有页数
+		if strings.Contains(text, fmt.Sprintf(`<a href="/?p=%d">`, i)) {
+			break
 		}
 
 		// 解析HTML
@@ -198,7 +205,6 @@ func obtainAllPapers() {
 			month, _ := strconv.Atoi(timeItems[1])
 			day, _ := strconv.Atoi(timeItems[2])
 			calendar := time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.Local)
-			calendar = calendar.Add(-24 * time.Hour)
 			name := calendar.Format("20060102") + "_" + theUrl[strings.LastIndex(theUrl, "/")+1:]
 
 			dst := filepath.Join(PapersPath, name)
@@ -220,7 +226,7 @@ func obtainAllPapers() {
 				return
 			}
 
-			time.Sleep(2 * time.Second)
+			time.Sleep(1 * time.Second)
 		})
 	}
 	log.Println("所有图片处理完毕")

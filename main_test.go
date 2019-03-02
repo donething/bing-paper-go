@@ -3,7 +3,6 @@
 package main
 
 import (
-	"io/ioutil"
 	"testing"
 )
 
@@ -13,8 +12,4 @@ func Test_obtainAllPapers(t *testing.T) {
 
 func Test_checkFiles(t *testing.T) {
 	checkFiles()
-}
-
-func Test_readBytes(t *testing.T) {
-	bs, err := ioutil.ReadAll()
 }
