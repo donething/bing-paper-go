@@ -29,7 +29,7 @@ const (
 	// 将n设为3而不是1，是为了避免几天没打开电脑，而导致漏掉某天的壁纸
 	papersURL    = `https://cn.bing.com/HPImageArchive.aspx?format=js&idx=0&n=3`
 	allPapersURL = `https://bing.ioliu.cn/?p=%d`
-	// 壁纸查漏：http://bingwallpaper.anerg.com/cn/201709
+	// 壁纸查漏：http://www.bingwallpaperhd.com
 )
 
 var (
