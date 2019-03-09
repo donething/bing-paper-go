@@ -16,7 +16,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -30,6 +29,7 @@ const (
 	// 将n设为3而不是1，是为了避免几天没打开电脑，而导致漏掉某天的壁纸
 	papersURL    = `https://cn.bing.com/HPImageArchive.aspx?format=js&idx=0&n=3`
 	allPapersURL = `https://bing.ioliu.cn/?p=%d`
+	// 壁纸查漏：http://bingwallpaper.anerg.com/cn/201709
 )
 
 var (
@@ -83,6 +83,7 @@ func onReady() {
 	systray.SetTooltip("下载每日Bing壁纸")
 
 	mOpenPaperFold := systray.AddMenuItem("打开壁纸文件夹", "打开壁纸文件夹")
+	mIsMissPapers := systray.AddMenuItem("检测缺失的壁纸", "检测缺失的壁纸")
 	mOpenLog := systray.AddMenuItem("打开日志", "打开日志文件")
 	systray.AddSeparator()
 	mQuit := systray.AddMenuItem("退出", "退出程序")
@@ -94,6 +95,8 @@ func onReady() {
 			if err != nil {
 				log.Printf("打开路径(%s)出错：%s\n", PapersPath, err)
 			}
+		case <-mIsMissPapers.ClickedCh:
+			isMissingPapers()
 		case <-mOpenLog.ClickedCh:
 			err := dofile.OpenAs(logName)
 			if err != nil {
@@ -202,11 +205,11 @@ func obtainAllPapers() {
 
 			// 提取文件名
 			theTime := selection.Find(".calendar").Text()
-			timeItems := strings.Split(theTime, "-")
-			year, _ := strconv.Atoi(timeItems[0])
-			month, _ := strconv.Atoi(timeItems[1])
-			day, _ := strconv.Atoi(timeItems[2])
-			calendar := time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.Local)
+			calendar, err := time.Parse("2006-01-02", theTime)
+			if err != nil {
+				log.Printf("解析时间出错：%s\n", err)
+				return true
+			}
 			name := calendar.Format("20060102") + "_" + theUrl[strings.LastIndex(theUrl, "/")+1:]
 
 			dst := filepath.Join(PapersPath, name)
@@ -225,10 +228,19 @@ func obtainAllPapers() {
 			}
 
 			// 保存到文件
-			_, err = client.GetFile(theUrl, nil, filepath.Join(PapersPath, name))
+			_, err = client.GetFile(theUrl, nil, dst)
 			if err != nil {
 				log.Printf("下载网络图片（%s） ==> （%s）出错：%s\n", theUrl, name, err)
 				return true
+			}
+
+			ok, err := dofile.CheckIntegrity(dst)
+			if err != nil {
+				log.Printf("检测文件（%s）的完整性出错：%s\n", dst, err)
+				return true
+			}
+			if !ok {
+				log.Printf("检测到下载的文件(%s)不完整\n", dst)
 			}
 
 			time.Sleep(1 * time.Second)
@@ -236,11 +248,6 @@ func obtainAllPapers() {
 		})
 	}
 	log.Println("所有图片处理完毕")
-
-	// 检测图片完整性
-	log.Println("开始检测文件的完整性：")
-	checkFiles()
-	log.Println("所有文件检测完成")
 }
 
 // jpg文件完整性检测
@@ -265,4 +272,52 @@ func checkFiles() {
 			log.Printf("文件不完整：%s\n", path)
 		}
 	}
+}
+
+func isMissingPapers() {
+	// 解析最先和最后的两个文件的时间
+	// 这两个时间可能不是应该下载的壁纸的时间范围
+	// 不过依然以这两个时间为准
+	log.Println("开始检测缺失壁纸：")
+	files, err := ioutil.ReadDir(PapersPath)
+	if err != nil {
+		log.Printf("读取目录(%s)出错：%s\n", PapersPath, err)
+		return
+	}
+	if len(files) == 0 {
+		return
+	}
+
+	start := files[0].Name()
+	start = start[0:strings.Index(start, "_")]
+	end := files[len(files)-1].Name()
+	end = end[0:strings.Index(end, "_")]
+
+	startDate, err := time.Parse("20060102", start)
+	if err != nil {
+		log.Printf("解析时间出错：%s\n", err)
+		return
+	}
+	endDate, err := time.Parse("20060102", end)
+	if err != nil {
+		log.Printf("解析时间出错：%s\n", err)
+		return
+	}
+
+	// 将所有壁纸的文件名合并为一个字符串，方便后面检测包含
+	allPapersText := ""
+	for _, f := range files {
+		allPapersText += f.Name() + " "
+	}
+
+	// 开始判断
+	index := 0
+	for date := startDate; date.Before(endDate); date = date.Add(24 * time.Hour) {
+		format := date.Format("20060102")
+		if !strings.Contains(allPapersText, format) {
+			log.Printf("此日壁纸不存在：%s\n", format)
+		}
+		index++
+	}
+	log.Println("检测缺失壁纸的操作已完成")
 }
