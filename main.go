@@ -73,10 +73,7 @@ func run() {
 		time.Sleep(1 * time.Minute)
 	}
 	// 保存壁纸
-	err := obtainLatestPapers()
-	if err != nil {
-		log.Fatal(err)
-	}
+	obtainAllPapers()
 }
 
 // 显示systray托盘
@@ -165,8 +162,12 @@ func obtainLatestPapers() error {
 func obtainAllPapers() {
 	resolution := "1920x1080" // 图片分辨率
 	log.Println("开始下载所有图片：")
-
+	var allHasDownload = false // 是否所有壁纸都已下载
 	for i := 1; ; i++ {
+		// 所有壁纸下载完毕后，退出
+		if allHasDownload {
+			break
+		}
 		// 获取网页文本
 		url := fmt.Sprintf(allPapersURL, i)
 		text, err := client.GetText(url, nil)
@@ -188,12 +189,13 @@ func obtainAllPapers() {
 		}
 
 		// 得到壁纸真实URL
-		dom.Find(".item").Each(func(i int, selection *goquery.Selection) {
+		// EachWithBreak()中的函数返回true时继续Each，返回false则退出Each
+		dom.Find(".item").EachWithBreak(func(i int, selection *goquery.Selection) bool {
 			// 获取壁纸真实的URL
 			src, has := selection.Find("img").Attr("src")
 			if !has {
 				log.Printf("没有找到img的src属性：%s\n", selection.Text())
-				return
+				return true
 			}
 			// theUrl格式：http://h1.ioliu.cn/bing/AbstractSaltBeds_ZH-CN8351691359_1920x1080.jpg
 			theUrl := src[0:strings.LastIndex(src, "_")] + "_" + resolution + ".jpg"
@@ -212,21 +214,25 @@ func obtainAllPapers() {
 			exist, err := dofile.PathExists(dst)
 			if err != nil {
 				log.Printf("判断路径（%s）是否存在时出错：%s\n", dst, err)
-				return
+				return true
 			}
 			if exist {
+				// 存在同名文件，则说明至今的壁纸都已获取完毕。准备退出for循环退出
 				log.Printf("本地已存在同名文件（%s）\n", dst)
-				return
+				allHasDownload = true
+				return false
+
 			}
 
 			// 保存到文件
 			_, err = client.GetFile(theUrl, nil, filepath.Join(PapersPath, name))
 			if err != nil {
 				log.Printf("下载网络图片（%s） ==> （%s）出错：%s\n", theUrl, name, err)
-				return
+				return true
 			}
 
 			time.Sleep(1 * time.Second)
+			return true
 		})
 	}
 	log.Println("所有图片处理完毕")
