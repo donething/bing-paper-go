@@ -96,7 +96,7 @@ func onReady() {
 				log.Printf("打开路径(%s)出错：%s\n", PapersPath, err)
 			}
 		case <-mIsMissPapers.ClickedCh:
-			isMissingPapers()
+			checkMissingPapers()
 		case <-mOpenLog.ClickedCh:
 			err := dofile.OpenAs(logName)
 			if err != nil {
@@ -274,7 +274,7 @@ func checkFiles() {
 	}
 }
 
-func isMissingPapers() {
+func checkMissingPapers() {
 	// 解析最先和最后的两个文件的时间
 	// 这两个时间可能不是应该下载的壁纸的时间范围
 	// 不过依然以这两个时间为准
