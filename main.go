@@ -3,15 +3,15 @@
 package main
 
 import (
-	"donething/bing-paper-go/icon"
-	"donething/bing-paper-go/models"
+	"bing-paper-go/icon"
+	"bing-paper-go/models"
 	"encoding/json"
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
 	"github.com/donething/utils-go/dofile"
 	"github.com/donething/utils-go/dohttp"
+	"github.com/donething/utils-go/dolog"
 	"github.com/getlantern/systray"
-	"io"
 	"io/ioutil"
 	"log"
 	"os"
@@ -37,19 +37,11 @@ var (
 )
 
 func init() {
-	// 打印log时显示时间戳
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
-
-	// 将日志输出到屏幕和日志文件
-	lf, err := os.OpenFile(logName, os.O_CREATE|os.O_APPEND, 0644)
+	// 保存日志到文件
+	err := dolog.Log2File(logName, dofile.WRITE_APPEND, dolog.LOG_FORMAT)
 	if err != nil {
-		log.Fatal("打开日志文件出错：", err)
+		log.Fatal(err)
 	}
-	// 此句不能有，否则日志不能保存到文件中
-	// defer lf.Close()
-	// MultiWriter()的参数顺序也重要，如果使用"-H windowsgui"参数build，并且需要将日志保存到文件，
-	// 则需要将日志文件的指针（lf）放到os.Stdout之前，否则log不会产生输出
-	log.SetOutput(io.MultiWriter(lf, os.Stdout))
 }
 
 func main() {
