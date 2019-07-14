@@ -22,8 +22,10 @@ import (
 
 const (
 	// 壁纸保存的路径
-	PapersPath = `D:/MyData/Image/Bing`
-	logName    = "run.log"
+	PapersPath         = `D:/MyData/Image/Bing`
+	fileNameTimeFormat = "20060102"
+
+	logName = "run.log"
 
 	host = `https://cn.bing.com`
 	// 将n设为3而不是1，是为了避免几天没打开电脑，而导致漏掉某天的壁纸
@@ -202,7 +204,7 @@ func obtainAllPapers() {
 				log.Printf("解析时间出错：%s\n", err)
 				return true
 			}
-			name := calendar.Format("20060102") + "_" + theUrl[strings.LastIndex(theUrl, "/")+1:]
+			name := calendar.Format(fileNameTimeFormat) + "_" + theUrl[strings.LastIndex(theUrl, "/")+1:]
 
 			dst := filepath.Join(PapersPath, name)
 			// 如果文件已存在，则取消下载
@@ -285,12 +287,12 @@ func checkMissingPapers() {
 	end := files[len(files)-1].Name()
 	end = end[0:strings.Index(end, "_")]
 
-	startDate, err := time.Parse("20060102", start)
+	startDate, err := time.Parse(fileNameTimeFormat, start)
 	if err != nil {
 		log.Printf("解析时间出错：%s\n", err)
 		return
 	}
-	endDate, err := time.Parse("20060102", end)
+	endDate, err := time.Parse(fileNameTimeFormat, end)
 	if err != nil {
 		log.Printf("解析时间出错：%s\n", err)
 		return
@@ -305,7 +307,7 @@ func checkMissingPapers() {
 	// 开始判断
 	index := 0
 	for date := startDate; date.Before(endDate); date = date.Add(24 * time.Hour) {
-		format := date.Format("20060102")
+		format := date.Format(fileNameTimeFormat)
 		if !strings.Contains(allPapersText, format) {
 			log.Printf("此日壁纸不存在：%s\n", format)
 		}
