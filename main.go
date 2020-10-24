@@ -22,7 +22,7 @@ import (
 
 const (
 	// 壁纸保存的路径
-	PapersPath         = `D:/MyData/Image/Bing`
+	PapersPath         = `C:/Do/MyData/Image/Bing`
 	fileNameTimeFormat = "20060102"
 
 	logName = "run.log"
@@ -35,18 +35,21 @@ const (
 )
 
 var (
-	client = dohttp.New(180*time.Second, false, false)
+	logFile *os.File
+	client  = dohttp.New(180*time.Second, false, false)
 )
 
 func init() {
 	// 保存日志到文件
-	err := dolog.Log2File(logName, dofile.WRITE_APPEND, dolog.LOG_FORMAT)
+	var err error
+	logFile, err = dolog.LogToFile(logName, dofile.OAppend, dolog.LogFormat)
 	if err != nil {
 		log.Fatal(err)
 	}
 }
 
 func main() {
+	defer logFile.Close()
 	// 显示托盘
 	go func() {
 		systray.Run(onReady, nil)
@@ -123,7 +126,7 @@ func obtainLatestPapers() error {
 	for _, p := range ps.Images {
 		name := p.Enddate + `_` + p.URL[strings.LastIndex(p.URL, `/`)+1:]
 		path := filepath.Join(PapersPath, name)
-		exist, err := dofile.PathExists(path)
+		exist, err := dofile.Exists(path)
 		if err != nil {
 			log.Printf("判断路径（%s）是否存在时出错：%s\n", path, err)
 			continue
@@ -133,7 +136,7 @@ func obtainLatestPapers() error {
 			continue
 		}
 
-		_, err = client.GetFile(host+p.URL, nil, path)
+		_, err = client.Download(host+p.URL, path, true, nil)
 		if err != nil {
 			log.Printf("获取网络图片（%s）时保存文件（%s）出错：%s\n", host+p.URL, path, err)
 			continue
@@ -208,7 +211,7 @@ func obtainAllPapers() {
 
 			dst := filepath.Join(PapersPath, name)
 			// 如果文件已存在，则取消下载
-			exist, err := dofile.PathExists(dst)
+			exist, err := dofile.Exists(dst)
 			if err != nil {
 				log.Printf("判断路径（%s）是否存在时出错：%s\n", dst, err)
 				return true
@@ -222,7 +225,7 @@ func obtainAllPapers() {
 			}
 
 			// 保存到文件
-			_, err = client.GetFile(theUrl, nil, dst)
+			_, err = client.Download(theUrl, dst, true, nil)
 			if err != nil {
 				log.Printf("下载网络图片（%s） ==> （%s）出错：%s\n", theUrl, name, err)
 				return true
