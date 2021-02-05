@@ -70,7 +70,11 @@ func run() {
 		time.Sleep(1 * time.Minute)
 	}
 	// 保存壁纸
-	obtainAllPapers()
+	//obtainAllPapers()
+	err := obtainLatestPapers()
+	if err != nil {
+		log.Printf("下载最新壁纸时出错：%s\n", err)
+	}
 }
 
 // 显示systray托盘
@@ -128,7 +132,7 @@ func obtainLatestPapers() error {
 		path := filepath.Join(PapersPath, name)
 		exist, err := dofile.Exists(path)
 		if err != nil {
-			log.Printf("判断路径（%s）是否存在时出错：%s\n", path, err)
+			log.Printf("判断路径是否存在时出错：%s\n", err)
 			continue
 		}
 		if exist {
