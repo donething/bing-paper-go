@@ -11,9 +11,7 @@ var (
 	Error *log.Logger
 )
 
-const (
-	LogName = "run.log"
-)
+const LogName = "run.log"
 
 func init() {
 	Info, Warn, Error = dolog.InitLog(LogName, dolog.DefaultFormat)
