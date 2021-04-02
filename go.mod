@@ -3,7 +3,7 @@ module bing-paper-go
 go 1.16
 
 require (
-	github.com/donething/utils-go v0.0.1 // indirect
+	github.com/donething/utils-go v0.0.2 // indirect
 	github.com/getlantern/context v0.0.0-20190109183933-c447772a6520 // indirect
 	github.com/getlantern/errors v0.0.0-20180829142810-e24b7f4ff7c7 // indirect
 	github.com/getlantern/golog v0.0.0-20170508214112-cca714f7feb5 // indirect
