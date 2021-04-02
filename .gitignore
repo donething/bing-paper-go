@@ -3,3 +3,4 @@ go.sum
 *.exe
 bing-paper-go
 *.log
+*.json
