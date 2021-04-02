@@ -3,62 +3,47 @@
 package main
 
 import (
+	. "bing-paper-go/config"
 	"bing-paper-go/icon"
+	"bing-paper-go/logger"
 	"bing-paper-go/models"
 	"encoding/json"
 	"fmt"
-	"github.com/PuerkitoBio/goquery"
 	"github.com/donething/utils-go/dofile"
 	"github.com/donething/utils-go/dohttp"
-	"github.com/donething/utils-go/dolog"
 	"github.com/getlantern/systray"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 )
 
 const (
 	// 壁纸保存的路径
-	PapersPath         = `C:/Do/MyData/Image/Bing`
 	fileNameTimeFormat = "20060102"
 
-	logName = "run.log"
-
-	host = `https://cn.bing.com`
-	// 将n设为3而不是1，是为了避免几天没打开电脑，而导致漏掉某天的壁纸
-	papersURL    = `https://cn.bing.com/HPImageArchive.aspx?format=js&idx=0&n=3`
-	allPapersURL = `https://bing.ioliu.cn/?p=%d`
-	// 壁纸查漏：http://www.bingwallpaperhd.com
+	host = "https://cn.bing.com"
+	// idx: 为0表示当天，1表示昨天；n: 获取壁纸的数量
+	papersURL = "https://cn.bing.com/HPImageArchive.aspx?format=js&idx=0&n=10&" +
+		"pid=hp&FORM=BEHPTB&uhd=1&uhdwidth=3840&uhdheight=2160"
 )
 
 var (
-	logFile *os.File
-	client  = dohttp.New(180*time.Second, false, false)
+	client = dohttp.New(30*time.Second, false, false)
 )
 
-func init() {
-	// 保存日志到文件
-	var err error
-	logFile, err = dolog.LogToFile(logName, dofile.OAppend, dolog.LogFormat)
-	if err != nil {
-		log.Fatal(err)
-	}
-}
-
 func main() {
-	defer logFile.Close()
 	// 显示托盘
 	go func() {
 		systray.Run(onReady, nil)
 	}()
 
 	// 下载
-	log.Println("开始定时下载必应壁纸：")
+	logger.Info.Println("开始定时下载必应壁纸：")
 	run()
-	ticker := time.NewTicker(12 * time.Hour)
+	ticker := time.NewTicker(11 * time.Hour)
 	for range ticker.C {
 		run()
 	}
@@ -67,13 +52,15 @@ func main() {
 // 下载
 func run() {
 	for !dohttp.CheckNetworkConn() {
+		logger.Warn.Printf("不能连接网络，继续等待……")
 		time.Sleep(1 * time.Minute)
 	}
 	// 保存壁纸
 	//obtainAllPapers()
+
 	err := obtainLatestPapers()
 	if err != nil {
-		log.Printf("下载最新壁纸时出错：%s\n", err)
+		logger.Error.Printf("下载最新壁纸时出错：%s\n", err)
 	}
 }
 
@@ -92,20 +79,20 @@ func onReady() {
 	for {
 		select {
 		case <-mOpenPaperFold.ClickedCh:
-			err := dofile.OpenAs(PapersPath)
+			err := dofile.OpenAs(Conf.Dir)
 			if err != nil {
-				log.Printf("打开路径(%s)出错：%s\n", PapersPath, err)
+				logger.Error.Printf("打开路径(%s)出错：%s\n", Conf.Dir, err)
 			}
 		case <-mIsMissPapers.ClickedCh:
 			checkMissingPapers()
 		case <-mOpenLog.ClickedCh:
-			err := dofile.OpenAs(logName)
+			err := dofile.OpenAs(logger.LogName)
 			if err != nil {
-				log.Printf("打开日志文件(%s)出错：%s\n", logName, err)
+				logger.Error.Printf("打开日志文件(%s)出错：%s\n", logger.LogName, err)
 			}
 		case <-mQuit.ClickedCh:
 			// 退出程序
-			log.Println("退出程序")
+			logger.Info.Println("退出程序")
 			systray.Quit()
 			os.Exit(0)
 		}
@@ -128,161 +115,40 @@ func obtainLatestPapers() error {
 
 	// 保存壁纸为文件
 	for _, p := range ps.Images {
-		name := p.Enddate + `_` + p.URL[strings.LastIndex(p.URL, `/`)+1:]
-		path := filepath.Join(PapersPath, name)
+		re := regexp.MustCompile(`id=(.+?)&`)
+		// p.Startdate 的时间点比对应图片的信息晚一天，所以用 Enddate 代替
+		name := p.Enddate + `_` + re.FindStringSubmatch(p.URL)[1]
+		path := filepath.Join(Conf.Dir, name)
 		exist, err := dofile.Exists(path)
 		if err != nil {
-			log.Printf("判断路径是否存在时出错：%s\n", err)
+			logger.Error.Printf("判断路径是否存在时出错：%s\n", err)
 			continue
 		}
 		if exist {
-			// log.Printf("本地已存在同名文件（%s）\n", path)
-			continue
+			logger.Warn.Printf("本地已存在同名文件，结束此次获取壁纸：%s\n", path)
+			break
 		}
 
 		_, err = client.Download(host+p.URL, path, true, nil)
 		if err != nil {
-			log.Printf("获取网络图片（%s）时保存文件（%s）出错：%s\n", host+p.URL, path, err)
+			logger.Error.Printf("获取网络图片（%s）时保存文件（%s）出错：%s\n", host+p.URL, path, err)
 			continue
 		}
 
-		// 检测图片完整性
-		ok, err := dofile.CheckIntegrity(path)
-		if err != nil {
-			log.Printf("检测图片完整性时出错：%s\n", path)
-			continue
-		}
-		if !ok {
-			log.Printf("文件不完整：%s\n", path)
-		}
-		log.Printf("图片（%s）保存完毕\n", path)
+		logger.Info.Printf("图片（%s）保存完毕\n", path)
 	}
-	log.Println("本日图片保存完毕")
+	logger.Info.Println("本次图片保存完毕")
 	return nil
-}
-
-// 获取网站上的所有壁纸
-// 参考：https://github.com/benheart/BingGallery/blob/master/bing_gallery_crawler_new.py
-func obtainAllPapers() {
-	resolution := "1920x1080" // 图片分辨率
-	log.Println("开始下载所有图片：")
-	var allHasDownload = false // 是否所有壁纸都已下载
-	for i := 1; ; i++ {
-		// 所有壁纸下载完毕后，退出
-		if allHasDownload {
-			break
-		}
-		// 获取网页文本
-		url := fmt.Sprintf(allPapersURL, i)
-		text, err := client.GetText(url, nil)
-		if err != nil {
-			log.Printf("获取网页（%s）文本出错：%s\n", url, err)
-			continue
-		}
-
-		// 如果当前页和前一页的页数相同，则说明已读取完所有页数
-		if strings.Contains(text, fmt.Sprintf(`<a href="/?p=%d">`, i)) {
-			break
-		}
-
-		// 解析HTML
-		dom, err := goquery.NewDocumentFromReader(strings.NewReader(text))
-		if err != nil {
-			log.Printf("解析HTML出错：%s\n", err)
-			continue
-		}
-
-		// 得到壁纸真实URL
-		// EachWithBreak()中的函数返回true时继续Each，返回false则退出Each
-		dom.Find(".item").EachWithBreak(func(i int, selection *goquery.Selection) bool {
-			// 获取壁纸真实的URL
-			src, has := selection.Find("img").Attr("src")
-			if !has {
-				log.Printf("没有找到img的src属性：%s\n", selection.Text())
-				return true
-			}
-			// theUrl格式：http://h1.ioliu.cn/bing/AbstractSaltBeds_ZH-CN8351691359_1920x1080.jpg
-			theUrl := src[0:strings.LastIndex(src, "_")] + "_" + resolution + ".jpg"
-
-			// 提取文件名
-			theTime := selection.Find(".calendar").Text()
-			calendar, err := time.Parse("2006-01-02", theTime)
-			if err != nil {
-				log.Printf("解析时间出错：%s\n", err)
-				return true
-			}
-			name := calendar.Format(fileNameTimeFormat) + "_" + theUrl[strings.LastIndex(theUrl, "/")+1:]
-
-			dst := filepath.Join(PapersPath, name)
-			// 如果文件已存在，则取消下载
-			exist, err := dofile.Exists(dst)
-			if err != nil {
-				log.Printf("判断路径（%s）是否存在时出错：%s\n", dst, err)
-				return true
-			}
-			if exist {
-				// 存在同名文件，则说明至今的壁纸都已获取完毕。准备退出for循环退出
-				log.Printf("本地已存在同名文件（%s）\n", dst)
-				allHasDownload = true
-				return false
-
-			}
-
-			// 保存到文件
-			_, err = client.Download(theUrl, dst, true, nil)
-			if err != nil {
-				log.Printf("下载网络图片（%s） ==> （%s）出错：%s\n", theUrl, name, err)
-				return true
-			}
-
-			ok, err := dofile.CheckIntegrity(dst)
-			if err != nil {
-				log.Printf("检测文件（%s）的完整性出错：%s\n", dst, err)
-				return true
-			}
-			if !ok {
-				log.Printf("检测到下载的文件(%s)不完整\n", dst)
-			}
-
-			time.Sleep(1 * time.Second)
-			return true
-		})
-	}
-	log.Println("所有图片处理完毕")
-}
-
-// jpg文件完整性检测
-func checkFiles() {
-	paths, err := ioutil.ReadDir(PapersPath)
-	if err != nil {
-		log.Printf("读取目录（%s）出错：%s\n", PapersPath, err)
-		return
-	}
-
-	for _, p := range paths {
-		if p.IsDir() {
-			continue
-		}
-		path := filepath.Join(PapersPath, p.Name())
-		ok, err := dofile.CheckIntegrity(path)
-		if err != nil {
-			log.Printf("检测文件（%s）的完整性出错：%s\n", path, err)
-			continue
-		}
-		if !ok {
-			log.Printf("文件不完整：%s\n", path)
-		}
-	}
 }
 
 func checkMissingPapers() {
 	// 解析最先和最后的两个文件的时间
 	// 这两个时间可能不是应该下载的壁纸的时间范围
 	// 不过依然以这两个时间为准
-	log.Println("开始检测缺失壁纸：")
-	files, err := ioutil.ReadDir(PapersPath)
+	logger.Info.Println("开始检测缺失壁纸：")
+	files, err := ioutil.ReadDir(Conf.Dir)
 	if err != nil {
-		log.Printf("读取目录(%s)出错：%s\n", PapersPath, err)
+		logger.Error.Printf("读取目录(%s)出错：%s\n", Conf.Dir, err)
 		return
 	}
 	if len(files) == 0 {
@@ -296,12 +162,12 @@ func checkMissingPapers() {
 
 	startDate, err := time.Parse(fileNameTimeFormat, start)
 	if err != nil {
-		log.Printf("解析时间出错：%s\n", err)
+		logger.Error.Printf("解析时间出错：%s\n", err)
 		return
 	}
 	endDate, err := time.Parse(fileNameTimeFormat, end)
 	if err != nil {
-		log.Printf("解析时间出错：%s\n", err)
+		logger.Error.Printf("解析时间出错：%s\n", err)
 		return
 	}
 
@@ -316,9 +182,9 @@ func checkMissingPapers() {
 	for date := startDate; date.Before(endDate); date = date.Add(24 * time.Hour) {
 		format := date.Format(fileNameTimeFormat)
 		if !strings.Contains(allPapersText, format) {
-			log.Printf("此日壁纸不存在：%s\n", format)
+			logger.Warn.Printf("此日壁纸不存在：%s\n", format)
 		}
 		index++
 	}
-	log.Println("检测缺失壁纸的操作已完成")
+	logger.Info.Println("检测缺失壁纸的操作已完成")
 }
