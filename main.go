@@ -16,6 +16,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -34,12 +35,16 @@ var (
 	client = dohttp.New(30*time.Second, false, false)
 )
 
-func main() {
+func init() {
 	// 显示托盘
 	go func() {
+		runtime.LockOSThread()
 		systray.Run(onReady, nil)
+		runtime.UnlockOSThread()
 	}()
+}
 
+func main() {
 	// 下载
 	logger.Info.Println("开始定时下载必应壁纸：")
 	run()
@@ -56,7 +61,7 @@ func run() {
 		time.Sleep(1 * time.Minute)
 	}
 	// 保存壁纸
-	//obtainAllPapers()
+	// obtainAllPapers()
 
 	err := obtainLatestPapers()
 	if err != nil {
